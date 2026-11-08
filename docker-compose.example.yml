@@ -1,0 +1,19 @@
+# Example compose service.
+services:
+  kia2mqtt:
+    image: kwv4/kia2mqtt:latest
+    restart: unless-stopped
+    environment:
+      CAR_NAME: my-ev9
+      KIA_USERNAME: ${KIA_USERNAME}
+      KIA_PASSWORD: ${KIA_PASSWORD}
+      KIA_PIN: ${KIA_PIN:-}
+      KIA_OTP_METHOD: EMAIL
+      MQTT_URL: ${MQTT_URL}
+      POLL_MINUTES: "30"
+      TZ: America/Chicago
+    volumes:
+      # Holds token.json (mode 600). Must persist, or every deploy needs a new OTP.
+      - ./data:/data
+    ports:
+      - "8080:8080"

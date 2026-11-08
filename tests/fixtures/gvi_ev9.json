@@ -1,0 +1,64 @@
+{
+  "_comment": "Hand-written from the field list of one cmm/gvi response (2024 EV9, charging on Level 1). Only status fields; no identifiers, VIN, vehicle key, account data or location.",
+  "vehicleConfig": {
+    "vehicleDetail": {
+      "vehicle": {
+        "mileage": "13259",
+        "mileageSyncDate": "20261108054147",
+        "fuelType": 4
+      }
+    },
+    "maintenance": {"nextServiceMile": 2741},
+    "billingPeriod": {
+      "freeTrial": {"value": 36, "unit": 0},
+      "servicePeriod": {"value": 120, "unit": 1}
+    }
+  },
+  "lastVehicleInfo": {
+    "vehicleStatusRpt": {
+      "statusType": "2",
+      "reportDate": {"utc": "20261108134806", "offset": -8},
+      "vehicleStatus": {
+        "climate": {
+          "airCtrl": false,
+          "defrost": false,
+          "airTemp": {"value": "72", "unit": 1},
+          "heatingAccessory": {"steeringWheel": 0, "rearWindow": 0, "steeringWheelStep": 0}
+        },
+        "engine": false,
+        "doorLock": true,
+        "doorStatus": {"frontLeft": 0, "frontRight": 0, "backLeft": 0, "backRight": 0, "trunk": 0, "hood": 0},
+        "evStatus": {
+          "batteryCharge": true,
+          "batteryStatus": 66,
+          "batteryPlugin": 4,
+          "batteryPrecondition": false,
+          "remainChargeTime": [
+            {"remainChargeType": 4, "timeInterval": {"value": 650, "unit": 4}}
+          ],
+          "drvDistance": [
+            {
+              "type": 2,
+              "rangeByFuel": {
+                "evModeRange": {"value": 220.59, "unit": 3},
+                "totalAvailableRange": {"value": 220.59, "unit": 3}
+              }
+            }
+          ],
+          "syncDate": {"utc": "20261108134147", "offset": -8},
+          "targetSOC": [
+            {"plugType": 1, "targetSOClevel": 80, "dte": {"type": 0, "rangeByFuel": {"totalAvailableRange": {"value": 433, "unit": 3}}}},
+            {"plugType": 0, "targetSOClevel": 100, "dte": {"type": 0, "rangeByFuel": {"totalAvailableRange": {"value": 555, "unit": 3}}}}
+          ],
+          "pluggedInState": 1,
+          "realTimePower": 1.4,
+          "batteryConditioning": 0,
+          "chargingDoorState": 1
+        },
+        "distanceToEmpty": {"value": 220.59, "unit": 3},
+        "syncDate": {"utc": "20261108134147", "offset": -8},
+        "fuelLevel": 0
+      }
+    }
+  }
+}
