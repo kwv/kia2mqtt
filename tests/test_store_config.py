@@ -53,6 +53,8 @@ def test_config_defaults():
     assert s.poll_minutes == 30
     assert s.otp_method == "EMAIL"
     assert (s.topic_prefix, s.location, s.climate_debounce_s) == ("kia", False, 60)
+    assert s.allow_unlock is False
+    assert config.load({**BASE, "ALLOW_UNLOCK": "true"}).allow_unlock is True
     assert (s.mqtt.host, s.mqtt.port, s.mqtt.username, s.mqtt.password) == (
         "broker.example",
         1883,
@@ -67,6 +69,7 @@ def test_config_defaults():
         {"POLL_MINUTES": "4"},
         {"TOPIC_PREFIX": "kia/#"},
         {"KIA_LOCATION": "maybe"},
+        {"ALLOW_UNLOCK": "maybe"},
         {"CLIMATE_DEBOUNCE_S": "-1"},
         {"CAR_NAME": "my/ev9"},
         {"MQTT_URL": "http://broker"},

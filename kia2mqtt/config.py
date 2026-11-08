@@ -37,6 +37,7 @@ class Settings:
     poll_minutes: int
     climate_debounce_s: int
     location: bool
+    allow_unlock: bool
     health_port: int
     log_level: str
 
@@ -123,6 +124,7 @@ def load(env: dict[str, str] | None = None) -> Settings:
         poll_minutes=poll_minutes,
         climate_debounce_s=climate_debounce_s,
         location=_bool(env, "KIA_LOCATION"),
+        allow_unlock=_bool(env, "ALLOW_UNLOCK"),
         health_port=health_port,
         log_level=env.get("LOG_LEVEL", "INFO").upper(),
     )

@@ -19,6 +19,7 @@ They aren't supported yet, and contributions are welcome.
 ## Behaviour
 - Polls the **cached** status (`cmm/gvi`) every `POLL_MINUTES` (default 30). The car is only woken when you send `refresh/set`.
 - Location is **off** unless `KIA_LOCATION=true`. When it's off, the bridge doesn't even request it from Kia.
+- `UNLOCK` is **refused** unless `ALLOW_UNLOCK=true`, so anyone who can publish to the broker can't open the car. `LOCK` always works.
 - Each command is sent **once**, confirmed via `cmm/gts`, and reported. It is never retried.
 - Unknown is never `false` or `0`. A value Kia doesn't report is not published, and a value that stops being reported is cleared (empty retained payload).
 
@@ -82,7 +83,7 @@ All are JSON with an `at` timestamp.
 - `TIMEOUT`: no answer within 60 s. The outcome is unknown, so check the next status.
 - `FAILED`: Kia returned no transaction id.
 - `ERROR`: the request raised an error.
-- `REJECTED`: the bridge refused it and sent nothing (bad payload, debounce, not logged in, or expired in the queue).
+- `REJECTED`: the bridge refused it and sent nothing (bad payload, debounce, unlock disabled, not logged in, or expired in the queue).
 
 `state` holds the related status fields from the read that follows the command,
 i.e. what the car reports, not an optimistic guess. OTP results never echo the code.
@@ -96,7 +97,7 @@ the bridge's own queue are dropped too.
 
 | Topic | Payload | Kia call |
 |---|---|---|
-| `{base}/lock/set` | `LOCK` / `UNLOCK` | `rems/door/lock` / `unlock` |
+| `{base}/lock/set` | `LOCK` / `UNLOCK` (`UNLOCK` needs `ALLOW_UNLOCK=true`) | `rems/door/lock` / `unlock` |
 | `{base}/climate/set` | climate JSON (below) / `off` | `rems/start` / `rems/stop` |
 | `{base}/charge/set` | `START` / `STOP` | `evc/charge` / `evc/cancel` |
 | `{base}/charge_limit/set` | `{"ac": 90}`, `{"dc": 80}` or both | `evc/sts` |
@@ -167,6 +168,7 @@ Environment variables:
 | `KIA_VEHICLE` | | car nickname; needed only if the account has more than one car |
 | `KIA_OTP_METHOD` | `EMAIL` | `EMAIL` or `SMS` |
 | `KIA_LOCATION` | `false` | `true` requests and publishes GPS location |
+| `ALLOW_UNLOCK` | `false` | `true` accepts `UNLOCK` on `lock/set`. Enable it only if your broker restricts who can publish. |
 | `MQTT_URL` | required | `mqtt://user:pass@host:1883` or `mqtts://…` (URL-encode special characters) |
 | `TOPIC_PREFIX` | `kia` | |
 | `POLL_MINUTES` | `30` | minimum 5. Kia rate-limits accounts that poll too often. |
