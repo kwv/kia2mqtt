@@ -402,6 +402,9 @@ class Bridge:
     def _run_vehicle_command(self, command: Command) -> dict[str, Any]:
         if time.monotonic() - command.received > COMMAND_MAX_AGE_S:
             return {"status": "REJECTED", "error": "command expired in queue"}
+        if command.kind == "lock" and command.value == "UNLOCK":
+            if not self.settings.allow_unlock:
+                return {"status": "REJECTED", "error": "unlock disabled (ALLOW_UNLOCK)"}
         if self.auth_state != "ok" or not self.kia.has_session:
             return {"status": "REJECTED", "error": f"not logged in ({self.auth_state})"}
 

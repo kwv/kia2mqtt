@@ -94,10 +94,10 @@ class Recorder:
 
 @pytest.fixture
 def make(settings, gvi):
-    def _make(otp=False):
+    def _make(otp=False, **overrides):
         kia = FakeKia(gvi, otp=otp)
         rec = Recorder()
-        bridge = Bridge(settings, kia, rec)
+        bridge = Bridge(settings.__class__(**{**vars(settings), **overrides}), kia, rec)
         return bridge, kia, rec
 
     return _make
@@ -170,8 +170,26 @@ def test_bad_payload_rejected(make):
     assert result(rec)["status"] == "REJECTED"
 
 
-def test_lock_command_sent_once_and_confirmed(make):
+def test_unlock_rejected_by_default(make):
     bridge, kia, rec = started(make)
+    bridge.on_mqtt_message("kia/testcar/lock/set", b"UNLOCK", retained=False)
+    bridge.handle(bridge.commands.get_nowait())
+    assert not [c for c in kia.calls if c[0] == "lock"]
+    body = result(rec)
+    assert body["status"] == "REJECTED"
+    assert "ALLOW_UNLOCK" in body["error"]
+
+
+def test_lock_allowed_without_unlock_setting(make):
+    bridge, kia, rec = started(make)
+    bridge.on_mqtt_message("kia/testcar/lock/set", b"LOCK", retained=False)
+    bridge.handle(bridge.commands.get_nowait())
+    assert kia.calls.count(("lock", True)) == 1
+    assert result(rec)["status"] == "SUCCESS"
+
+
+def test_lock_command_sent_once_and_confirmed(make):
+    bridge, kia, rec = started(make, allow_unlock=True)
     bridge.on_mqtt_message("kia/testcar/lock/set", b"unlock", retained=False)
     bridge.handle(bridge.commands.get_nowait())
     assert kia.calls.count(("lock", False)) == 1
