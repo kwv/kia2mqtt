@@ -1,7 +1,8 @@
 """Map a cmm/gvi vehicleInfoList entry to the published status fields.
 
-parse_status() returns {field: payload string}. A field whose source value is
-missing or unusable is left out, so it is never published as false or 0.
+parse_status() returns {field: value} with JSON-ready values (int, float,
+bool, ISO time string). A field whose source value is missing or unusable is
+left out, so it is never published as false or 0.
 """
 
 import datetime as dt
@@ -74,12 +75,6 @@ def _bool(value: Any) -> bool | None:
     return value if isinstance(value, bool) else None
 
 
-def _fmt(value: bool | int | float) -> str:
-    if isinstance(value, bool):
-        return "true" if value else "false"
-    return str(value)
-
-
 def _distance_mi(info: dict[str, Any], path: str) -> int | float | None:
     if get_child_value(info, path + ".unit") not in _MILE_UNITS:
         return None
@@ -104,7 +99,7 @@ def parse_status(
     fallback_ac: int | None = None,
     fallback_dc: int | None = None,
     location: bool = False,
-) -> dict[str, str]:
+) -> dict[str, Any]:
     """fallback_ac/dc: charge targets from evc/gts, used when gvi lacks them.
     location: include LOCATION_FIELDS (otherwise they are never returned)."""
     values: dict[str, Any] = {}
@@ -160,8 +155,4 @@ def parse_status(
                 get_child_value(info, "lastVehicleInfo.location.syncDate.utc")
             )
 
-    return {
-        field: value if isinstance(value, str) else _fmt(value)
-        for field, value in values.items()
-        if value is not None
-    }
+    return {field: value for field, value in values.items() if value is not None}
