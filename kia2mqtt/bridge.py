@@ -19,7 +19,7 @@ from hyundai_kia_connect_api.ApiImpl import OTPRequest
 from . import climate, store
 from .config import Settings
 from .kia import KiaClient, OtpRequired
-from .status import FIELDS, LOCATION_FIELDS, parse_status
+from .status import parse_status
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -57,7 +57,6 @@ class Topics:
         self.result = f"{base}/result"
         self.error = f"{base}/error"
         self.online = f"{base}/bridge/online"
-        self.last_poll = f"{base}/bridge/last_poll"
         self.auth_state = f"{base}/auth/state"
         self.otp_required = f"{base}/auth/otp_required"
         self.otp_set = f"{base}/auth/otp/set"
@@ -67,9 +66,6 @@ class Topics:
         self.charge_set = f"{base}/charge/set"
         self.charge_limit_set = f"{base}/charge_limit/set"
         self.refresh_set = f"{base}/refresh/set"
-
-    def status_field(self, name: str) -> str:
-        return f"{self.status}/{name}"
 
     @property
     def inbound(self) -> list[str]:
@@ -142,13 +138,13 @@ class Bridge:
         self.kia = client
         self._publish = publish
         self.topics = Topics(settings.topic_prefix, settings.car_name)
-        self.fields = FIELDS + (LOCATION_FIELDS if settings.location else ())
         self.commands: queue.Queue[Command] = queue.Queue()
         self.stop_event = threading.Event()
 
         # Retained messages, replayed on every MQTT (re)connect.
         self.retained: dict[str, str] = {}
-        self.status: dict[str, str] = {}
+        # Fields of the last published snapshot (without "polled").
+        self.status: dict[str, Any] = {}
         self.auth_state = "starting"
         self.last_poll_ok: dt.datetime | None = None
         self.last_error: str | None = None
@@ -279,24 +275,14 @@ class Bridge:
             self._start_session()
             return False
         self.kia.save_token()
-        self._publish_status(
-            parse_status(info, ac, dc, location=self.settings.location)
-        )
+        self.status = parse_status(info, ac, dc, location=self.settings.location)
         self.last_poll_ok = utc_now()
         self.last_error = None
-        self.publish(self.topics.last_poll, iso(self.last_poll_ok), retain=True)
+        # The whole poll as one retained message, so consumers never see a
+        # partial or mixed snapshot.
+        snapshot = {**self.status, "polled": iso(self.last_poll_ok)}
+        self.publish(self.topics.status, json.dumps(snapshot), retain=True)
         return True
-
-    def _publish_status(self, status: dict[str, str]) -> None:
-        for name in self.fields:
-            topic = self.topics.status_field(name)
-            if name in status:
-                if self.status.get(name) != status[name] or topic not in self.retained:
-                    self.publish(topic, status[name], retain=True)
-            elif name in self.status or topic in self.retained:
-                # No longer reported: clear the retained value (unknown).
-                self.publish(topic, "", retain=True)
-        self.status = dict(status)
 
     # --- OTP -----------------------------------------------------------------
 

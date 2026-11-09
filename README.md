@@ -21,7 +21,7 @@ They aren't supported yet, and contributions are welcome.
 - Location is **off** unless `KIA_LOCATION=true`. When it's off, the bridge doesn't even request it from Kia.
 - `UNLOCK` is **refused** unless `ALLOW_UNLOCK=true`, so anyone who can publish to the broker can't open the car. `LOCK` always works.
 - Each command is sent **once**, confirmed via `cmm/gts`, and reported. It is never retried.
-- Unknown is never `false` or `0`. A value Kia doesn't report is not published, and a value that stops being reported is cleared (empty retained payload).
+- Unknown is never `false` or `0`. A field Kia doesn't report is left out of the status snapshot.
 
 ## MQTT contract
 
@@ -30,42 +30,55 @@ UTC ISO 8601 (`2026-11-08T13:41:47Z`).
 
 ### Status (retained)
 
-`{base}/status/{field}`, one plain-text value per topic. Values are
+`{base}/status`: one JSON object per successful poll (or refresh), holding the
+whole snapshot. It is published on every poll, even if nothing changed, and
 re-published on every MQTT reconnect, so a broker without persistence still
-gets them back.
+gets it back.
 
-| Field | Payload | Source (`gvi`) |
+```json
+{"soc": 66, "charging": true, "plugged": true, "power_kw": 1.4,
+ "remain_min": 650, "range": 220.59, "odometer": 13259, "distance_unit": "mi",
+ "locked": true, "climate": false, "target_soc_ac": 80, "target_soc_dc": 100,
+ "updated": "2026-11-08T13:41:47Z", "polled": "2026-11-08T13:48:10Z"}
+```
+
+| Field | Type | Source (`gvi`) |
 |---|---|---|
-| `soc` | `66` (%) | `evStatus.batteryStatus` |
-| `charging` | `true` / `false` | `evStatus.batteryCharge` |
-| `plugged` | `true` / `false` | `evStatus.batteryPlugin` ≠ 0 |
-| `power_kw` | `1.4` | `evStatus.realTimePower` |
-| `remain_min` | `650` | `evStatus.remainChargeTime[0].timeInterval` (minutes to target) |
-| `range` | `220.59` | `evStatus.drvDistance[0]…totalAvailableRange`, else `distanceToEmpty` |
-| `odometer` | `13259` | `vehicleConfig.vehicleDetail.vehicle.mileage` |
-| `distance_unit` | `mi` | unit of `range` and `odometer` (always `mi` on US accounts) |
-| `locked` | `true` / `false` | `doorLock` |
-| `climate` | `true` / `false` | `climate.airCtrl` |
-| `target_soc_ac` | `80` | `evStatus.targetSOC` plugType 1, else `evc/gts` |
-| `target_soc_dc` | `100` | `evStatus.targetSOC` plugType 0, else `evc/gts` |
+| `soc` | number (%) | `evStatus.batteryStatus` |
+| `charging` | bool | `evStatus.batteryCharge` |
+| `plugged` | bool | `evStatus.batteryPlugin` ≠ 0 |
+| `power_kw` | number | `evStatus.realTimePower` |
+| `remain_min` | number | `evStatus.remainChargeTime[0].timeInterval` (minutes to target) |
+| `range` | number | `evStatus.drvDistance[0]…totalAvailableRange`, else `distanceToEmpty` |
+| `odometer` | number | `vehicleConfig.vehicleDetail.vehicle.mileage` |
+| `distance_unit` | `"mi"` | unit of `range` and `odometer` (always `mi` on US accounts) |
+| `locked` | bool | `doorLock` |
+| `climate` | bool | `climate.airCtrl` |
+| `target_soc_ac` | number | `evStatus.targetSOC` plugType 1, else `evc/gts` |
+| `target_soc_dc` | number | `evStatus.targetSOC` plugType 0, else `evc/gts` |
 | `updated` | ISO time | `syncDate.utc`: when the **car** last reported to Kia |
-| `latitude`, `longitude` | `12.345` | `location.coord`. Only with `KIA_LOCATION=true` |
+| `latitude`, `longitude` | number | `location.coord`. Only with `KIA_LOCATION=true` |
 | `location_updated` | ISO time | `location.syncDate.utc`. Only with `KIA_LOCATION=true` |
+| `polled` | ISO time | when the bridge read this snapshot from Kia |
 
-`updated` is the age of the data. A poll can succeed and still return an old
-report, so judge staleness from `updated`, not from when the message arrived.
+Any field except `polled` may be missing (unknown).
+
+`updated` is the age of the data. Kia's cache can return an old report, even
+under a newer `updated`, and the bridge passes it on as is. Consumers that need
+to reject one can compare snapshots (an `odometer` lower than the previous one
+means an old report). A replay on reconnect has the same `polled` as the
+original, so a repeated `polled` is not a new reading.
 
 ### Bridge health and auth (retained)
 
 | Topic | Payload |
 |---|---|
 | `{base}/bridge/online` | `true`; `false` via MQTT last will or on shutdown |
-| `{base}/bridge/last_poll` | ISO time of the last **successful** poll |
 | `{base}/auth/state` | `ok` / `otp_required` / `error` |
 
 HTTP `GET :8080/health` returns 200 while MQTT is connected (503 otherwise),
 with a JSON body: `mqtt_connected`, `auth`, `last_poll_ok`, `last_error`.
-For a "bridge went quiet" alert, watch `bridge/online`, or `bridge/last_poll`
+For a "bridge went quiet" alert, watch `bridge/online`, or `polled` in `status`
 going older than a couple of poll intervals.
 
 ### Events (not retained)

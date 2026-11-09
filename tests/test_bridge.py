@@ -115,35 +115,41 @@ def result(rec):
     return json.loads(payload)
 
 
-def test_poll_publishes_retained_status(make):
+def snapshot(rec, base="kia/testcar"):
+    payload, retain = rec.last(f"{base}/status")
+    assert retain is True
+    return json.loads(payload)
+
+
+def test_poll_publishes_one_retained_snapshot(make):
     bridge, kia, rec = started(make)
     assert bridge.poll()
-    assert rec.last("kia/testcar/status/soc") == ("66", True)
-    assert rec.last("kia/testcar/status/updated") == ("2026-11-08T13:41:47Z", True)
+    body = snapshot(rec)
+    assert body["soc"] == 66 and body["plugged"] is True
+    assert body["updated"] == "2026-11-08T13:41:47Z"
+    assert body["polled"].endswith("Z")
     assert rec.last("kia/testcar/auth/state") == ("ok", True)
-    assert rec.last("kia/testcar/bridge/last_poll")[1] is True
+    # Nothing per field.
+    assert not [t for t, _, _ in rec.messages if t.startswith("kia/testcar/status/")]
 
 
-def test_unchanged_values_not_republished_but_replayed_on_reconnect(make):
+def test_every_poll_publishes_and_reconnect_replays(make):
     bridge, kia, rec = started(make)
     bridge.poll()
     bridge.poll()
-    assert rec.count("kia/testcar/status/soc") == 1
+    assert rec.count("kia/testcar/status") == 2
     rec.messages.clear()
     bridge.on_mqtt_connect()
     assert rec.last("kia/testcar/bridge/online") == ("true", True)
-    assert rec.last("kia/testcar/status/soc") == ("66", True)
+    assert snapshot(rec)["soc"] == 66
 
 
-def test_field_that_disappears_is_cleared(make, gvi):
+def test_field_that_disappears_is_left_out(make, gvi):
     bridge, kia, rec = started(make)
     bridge.poll()
     del kia.gvi["lastVehicleInfo"]["vehicleStatusRpt"]["vehicleStatus"]["doorLock"]
     bridge.poll()
-    assert rec.last("kia/testcar/status/locked") == ("", True)
-    rec.messages.clear()
-    bridge.on_mqtt_connect()
-    assert rec.last("kia/testcar/status/locked") is None
+    assert "locked" not in snapshot(rec)
 
 
 def test_failed_poll_keeps_values_and_reports_error(make):
@@ -152,7 +158,7 @@ def test_failed_poll_keeps_values_and_reports_error(make):
     kia.fail_fetch = True
     assert not bridge.poll()
     assert json.loads(rec.last("kia/testcar/error")[0])["type"] == "poll"
-    assert rec.count("kia/testcar/status/soc") == 1
+    assert rec.count("kia/testcar/status") == 1
     # It logged in again once, but did not poll again.
     assert kia.calls.count("gvi") == 2
 
@@ -195,7 +201,7 @@ def test_lock_command_sent_once_and_confirmed(make):
     assert kia.calls.count(("lock", False)) == 1
     body = result(rec)
     assert body["status"] == "SUCCESS"
-    assert body["state"]["locked"] == "true"  # the car's report, not optimistic
+    assert body["state"]["locked"] is True  # the car's report, not optimistic
     assert "gvi" in kia.calls
 
 
@@ -305,7 +311,7 @@ def test_charge_start_stop(make):
     bridge.on_mqtt_message("kia/testcar/charge/set", b"stop", False)
     bridge.handle(bridge.commands.get_nowait())
     assert ("charge", False) in kia.calls
-    assert result(rec)["state"]["charging"] == "true"
+    assert result(rec)["state"]["charging"] is True
 
 
 def test_refresh_only_on_request(make):
@@ -327,7 +333,7 @@ def test_topic_prefix_and_location_settings(settings, gvi):
     bridge = Bridge(custom, FakeKia(gvi), rec)
     bridge._start_session()
     bridge.poll()
-    assert rec.last("cars/kia/testcar/status/latitude") == ("12.3", True)
+    assert snapshot(rec, "cars/kia/testcar")["latitude"] == 12.3
     assert "cars/kia/testcar/lock/set" in bridge.topics.inbound
 
 
@@ -335,4 +341,4 @@ def test_location_never_published_by_default(make, gvi):
     gvi["lastVehicleInfo"]["location"] = {"coord": {"lat": 12.3, "lon": 45.6}}
     bridge, kia, rec = started(make)
     bridge.poll()
-    assert not [t for t, _, _ in rec.messages if "latitude" in t]
+    assert "latitude" not in snapshot(rec)
