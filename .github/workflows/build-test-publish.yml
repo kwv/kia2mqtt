@@ -46,8 +46,8 @@ jobs:
       - name: Run tests
         run: ./venv/bin/pytest
 
-      # Run the suite again inside the built image, so a base image bump is
-      # tested on the Python and OS it ships with.
+      # Run the suite again inside the built image, so a base image bump (or
+      # the weekly rebuild) is tested on the Python and OS it ships with.
       - name: Build image
         run: docker build -t kia2mqtt:ci .
 
@@ -85,6 +85,17 @@ jobs:
 
       - name: Run tests
         run: ./venv/bin/pytest
+
+      # Run the suite again inside the built image, so a base image bump (or
+      # the weekly rebuild) is tested on the Python and OS it ships with.
+      - name: Build image
+        run: docker build -t kia2mqtt:ci .
+
+      - name: Run tests in image
+        run: |
+          pytest_pin="$(grep '^pytest==' requirements-dev.txt)"
+          docker run --rm --user root -v "$PWD/tests:/app/tests:ro" kia2mqtt:ci \
+            sh -c "/venv/bin/pip install -q '$pytest_pin' && /venv/bin/python -m pytest -q -p no:cacheprovider tests"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
