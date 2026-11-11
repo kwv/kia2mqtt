@@ -25,3 +25,4 @@ A general-purpose bridge for anyone's car. It holds no policy and publishes only
 - Never run anything that writes to the car (lock, climate, charge limit, even a no-op) without the user's explicit OK.
 - Stay a generic bridge: no presets, schedules or house-specific defaults. Expose API capabilities as commands; never send them automatically (force refresh, charge start/stop are user-triggered only).
 - After a library bump, `tests/test_kia.py::test_library_status_path_uses_override_end_to_end` must still pass. It guards the location-off-by-default override.
+- `tests/test_kia_http.py` pins every request sent to Kia through the real library. Dependabot PRs auto-merge when it passes, so when a bump breaks it, read the library diff before changing an expected request; never loosen it to get green.

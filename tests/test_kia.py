@@ -1,5 +1,5 @@
 import datetime as dt
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, create_autospec
 
 import pytest
 from hyundai_kia_connect_api.ApiImpl import OTPRequest
@@ -44,7 +44,9 @@ def make_token(hours=10):
 
 
 def fake_api():
-    api = MagicMock()
+    # Built from the installed library, so a renamed method or changed
+    # signature upstream fails here.
+    api = create_autospec(KiaApi, instance=True)
     api.get_vehicles.return_value = [Vehicle(id="1", name="My EV9", key="KEY")]
     return api
 
