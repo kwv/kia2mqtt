@@ -1,9 +1,9 @@
-FROM python:3.12-slim AS build
+FROM python:3.15-slim AS build
 RUN python -m venv /venv
 COPY requirements.txt .
 RUN /venv/bin/pip install --no-cache-dir -r requirements.txt
 
-FROM python:3.12-slim
+FROM python:3.15-slim
 ARG VERSION=local
 LABEL org.opencontainers.image.title="kia2mqtt" \
       org.opencontainers.image.description="Kia Connect (US) to MQTT bridge" \
